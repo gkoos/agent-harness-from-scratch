@@ -7,7 +7,7 @@ export interface ToolDefinition { name: string; description: string; parameters:
 export interface Tool extends ToolDefinition { execute(argumentsValue: unknown, signal: AbortSignal): Promise<unknown>; }
 export interface Model { generate(input: { messages: readonly Message[]; tools: readonly ToolDefinition[]; signal: AbortSignal; }): Promise<{ content: string; toolCalls?: ToolCall[] }>; }
 export type AgentResult = {
-  status: 'completed' | 'step_limit' | 'tool_limit' | 'timeout' | 'aborted' | 'model_error';
+  status: 'completed' | 'step_limit' | 'tool_limit' | 'timeout' | 'aborted' | 'model_error' | 'context_limit';
   answer?: string;
   messages: Message[];
   steps: number;

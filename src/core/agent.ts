@@ -1,5 +1,6 @@
 import type { AgentResult, Message, Model, Tool } from './types.ts';
 import { ToolRegistry, validate } from './registry.ts';
+import { boundToolResult, defaultContextPolicy, selectContext, validateContextPolicy, type ContextPolicy } from './context.ts';
 
 export async function runAgent(options: {
   model: Model;
@@ -8,6 +9,7 @@ export async function runAgent(options: {
   maxSteps?: number;
   maxToolCalls?: number;
   timeoutMs?: number;
+  context?: Partial<ContextPolicy>;
   signal?: AbortSignal;
 }): Promise<AgentResult> {
   const { model, tools, prompt, maxSteps = 10, maxToolCalls = 30, timeoutMs } = options;
@@ -15,6 +17,8 @@ export async function runAgent(options: {
   if (!Number.isSafeInteger(maxToolCalls) || maxToolCalls < 0) throw new RangeError('maxToolCalls must be a nonnegative safe integer');
   if (timeoutMs !== undefined && (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1)) throw new RangeError('timeoutMs must be a positive safe integer');
 
+  const context: ContextPolicy = { ...defaultContextPolicy, ...options.context };
+  validateContextPolicy(context);
   const controller = new AbortController();
   let timedOut = false;
   const onAbort = () => controller.abort(options.signal?.reason);
@@ -36,7 +40,10 @@ export async function runAgent(options: {
     for (let step = 0; step < maxSteps; step++) {
       if (signal.aborted) return stopped();
       let response: Awaited<ReturnType<Model['generate']>>;
-      try { response = await model.generate({ messages: [...messages], tools: definitions, signal }); }
+      let modelMessages: Message[];
+      try { modelMessages = selectContext(messages, context.maxContextChars); }
+      catch (error) { return { status: 'context_limit', messages, steps, toolCalls, error: error instanceof Error ? error.message : String(error) }; }
+      try { response = await model.generate({ messages: modelMessages, tools: definitions, signal }); }
       catch (error) {
         if (signal.aborted) return stopped();
         return { status: 'model_error', messages, steps, toolCalls, error: error instanceof Error ? error.message : String(error) };
@@ -58,10 +65,10 @@ export async function runAgent(options: {
         try {
           const result = await tool.execute(call.arguments, signal);
           if (signal.aborted) return stopped();
-          messages.push({ role: 'tool', callId: call.id, content: JSON.stringify(result) ?? 'null', isError: false });
+          messages.push({ role: 'tool', callId: call.id, content: boundToolResult(JSON.stringify(result) ?? 'null', context.maxToolResultChars), isError: false });
         } catch (error) {
           if (signal.aborted) return stopped();
-          messages.push({ role: 'tool', callId: call.id, content: error instanceof Error ? error.message : String(error), isError: true });
+          messages.push({ role: 'tool', callId: call.id, content: boundToolResult(error instanceof Error ? error.message : String(error), context.maxToolResultChars), isError: true });
         }
       }
     }
