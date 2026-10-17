@@ -40,3 +40,34 @@ test('does not call model when already aborted', async () => {
   const result = await runAgent({ prompt: 'Test', signal: controller.signal, tools: [], model: scriptedModel([]) });
   assert.equal(result.status, 'aborted');
 });
+
+test('invalid tool arguments are reported without execution', async () => {
+  let executed = false;
+  const result = await runAgent({ prompt: 'Test', model: scriptedModel([
+    { content: '', toolCalls: [{ id: 'bad', name: 'echo', arguments: { text: 42 } }] },
+    { content: 'I will correct my input.' }
+  ]), tools: [{ name: 'echo', description: 'Echo text', parameters: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] }, async execute() { executed = true; return 'ok'; } }] });
+  assert.equal(executed, false);
+  assert.equal(result.status, 'completed');
+  assert.match((result.messages[2] as { content: string }).content, /expected string/);
+});
+
+test('tool exceptions are recoverable', async () => {
+  const result = await runAgent({ prompt: 'Test', model: scriptedModel([
+    { content: '', toolCalls: [{ id: '1', name: 'fail', arguments: {} }] },
+    { content: 'Recovered.' }
+  ]), tools: [{ name: 'fail', description: 'Fails', parameters: { type: 'object' }, async execute() { throw new Error('disk unavailable'); } }] });
+  assert.equal(result.status, 'completed');
+  assert.equal((result.messages[2] as { isError: boolean }).isError, true);
+});
+
+test('model errors terminate without becoming tool messages', async () => {
+  const result = await runAgent({ prompt: 'Test', tools: [], model: scriptedModel([]) });
+  assert.equal(result.status, 'model_error');
+  assert.match(result.error!, /exhausted/);
+});
+
+test('duplicate tool names are rejected before model invocation', async () => {
+  const tool = { name: 'echo', description: 'Echo', parameters: { type: 'string' }, async execute() { return 'ok'; } };
+  await assert.rejects(runAgent({ prompt: 'Test', model: scriptedModel([]), tools: [tool, tool] }), /Duplicate tool/);
+});

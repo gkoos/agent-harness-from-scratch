@@ -24,8 +24,9 @@ export interface Model {
 }
 
 export type AgentResult = {
-  status: 'completed' | 'step_limit' | 'aborted';
+  status: 'completed' | 'step_limit' | 'aborted' | 'model_error';
   answer?: string;
   messages: Message[];
   steps: number;
+  error?: string;
 };
