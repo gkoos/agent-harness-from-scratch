@@ -6,4 +6,11 @@ export type Message =
 export interface ToolDefinition { name: string; description: string; parameters: Record<string, unknown>; }
 export interface Tool extends ToolDefinition { execute(argumentsValue: unknown, signal: AbortSignal): Promise<unknown>; }
 export interface Model { generate(input: { messages: readonly Message[]; tools: readonly ToolDefinition[]; signal: AbortSignal; }): Promise<{ content: string; toolCalls?: ToolCall[] }>; }
-export type AgentResult = { status: 'completed' | 'step_limit' | 'aborted' | 'model_error'; answer?: string; messages: Message[]; steps: number; error?: string; };
+export type AgentResult = {
+  status: 'completed' | 'step_limit' | 'tool_limit' | 'timeout' | 'aborted' | 'model_error';
+  answer?: string;
+  messages: Message[];
+  steps: number;
+  toolCalls: number;
+  error?: string;
+};
