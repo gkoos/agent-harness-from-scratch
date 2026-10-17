@@ -1,3 +1,5 @@
+import type { Usage, UsageTotals } from './events.ts';
+
 export type ToolCall = { id: string; name: string; arguments: unknown };
 export type Message =
   | { role: 'user'; content: string }
@@ -5,7 +7,7 @@ export type Message =
   | { role: 'tool'; callId: string; content: string; isError: boolean };
 export interface ToolDefinition { name: string; description: string; parameters: Record<string, unknown>; }
 export interface Tool extends ToolDefinition { execute(argumentsValue: unknown, signal: AbortSignal): Promise<unknown>; }
-export interface Model { generate(input: { messages: readonly Message[]; tools: readonly ToolDefinition[]; signal: AbortSignal; }): Promise<{ content: string; toolCalls?: ToolCall[] }>; }
+export interface Model { generate(input: { messages: readonly Message[]; tools: readonly ToolDefinition[]; signal: AbortSignal; }): Promise<{ content: string; toolCalls?: ToolCall[]; usage?: Usage }>; }
 export type AgentResult = {
   status: 'completed' | 'step_limit' | 'tool_limit' | 'timeout' | 'aborted' | 'model_error' | 'context_limit';
   answer?: string;
@@ -13,4 +15,6 @@ export type AgentResult = {
   steps: number;
   toolCalls: number;
   error?: string;
+  runId: string;
+  usage: UsageTotals;
 };
