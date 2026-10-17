@@ -1,5 +1,6 @@
 import type { AgentResult, Message, Model, Tool } from './types.ts';
 import { ToolRegistry, validate } from './registry.ts';
+import { validateModelResponse } from './response.ts';
 import { boundToolResult, defaultContextPolicy, selectContext, validateContextPolicy, type ContextPolicy } from './context.ts';
 import { addUsage, createEventEmitter, type EventLogger, type UsageTotals } from './events.ts';
 
@@ -62,7 +63,7 @@ export async function runAgent(options: {
         return finish('model_error', { error: message });
       }
       if (signal.aborted) return stopped();
-      try { addUsage(usage, response.usage); }
+      try { validateModelResponse(response); addUsage(usage, response.usage); }
       catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         telemetry.emit({ type: 'model_error', step: step + 1, durationMs: performance.now() - modelStart, error: message });
@@ -71,10 +72,10 @@ export async function runAgent(options: {
       steps++;
       const calls = response.toolCalls ?? [];
       telemetry.emit({ type: 'model_end', step: steps, durationMs: performance.now() - modelStart, toolCallCount: calls.length, ...(response.usage ? { usage: response.usage } : {}) });
+      // Reject an entire batch before recording an unmatched assistant tool-call turn.
+      if (calls.length > maxToolCalls - toolCalls) return finish('tool_limit');
       messages.push({ role: 'assistant', content: response.content, ...(calls.length ? { toolCalls: calls } : {}) });
       if (!calls.length) return finish('completed', { answer: response.content });
-      // Reject an entire batch before executing any side effects.
-      if (calls.length > maxToolCalls - toolCalls) return finish('tool_limit');
       for (const call of calls) {
         if (signal.aborted) return stopped();
         toolCalls++;

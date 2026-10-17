@@ -29,6 +29,7 @@ src/
     context.ts     # Bounded context selection and tool-result truncation
     events.ts      # Structured events, run IDs, and usage accounting
     registry.ts    # Tool registry and limited argument validation
+    response.ts    # Model response boundary validation
     types.ts       # Provider-independent interfaces
   models/
     fake.ts        # Scripted deterministic model
@@ -49,6 +50,7 @@ tests/             # Node.js built-in test runner
 | `04-execution-limits` | Tool-call budget, cooperative deadline, cancellation, and execution accounting |
 | `05-context` | Bounded model-facing context, tool-result truncation, atomic tool-call batches, and context-limit status |
 | `06-observability` | Correlated lifecycle events, model/tool durations, best-effort observers, and reported token usage |
+| `07-testing` | Deterministic failure matrix, seeded batch-admission tests, malformed-response rejection |
 
 Each tag marks an article milestone. The `main` branch holds the latest implementation.
 
@@ -271,7 +273,33 @@ the final status once the awaited operation settles. Cooperative cancellation
 is not a hard deadline. The event stream is metadata, not an audit log of every
 side effect.
 
+## Milestone 7: Deterministic failure testing
+
+The test suite now exercises malformed model responses, duplicate tool-call IDs,
+missing arguments, budget rejection, cancellation between tool calls, observer
+exceptions, and recoverable tool failures. A seeded pseudo-random generator
+covers 150 batch-admission scenarios, plus 60 tool-exception scenarios. These
+runs are reproducible and require no model API or network access.
+
+**Adapter boundary:** `validateModelResponse` checks the model response before
+recording it or dispatching tools. Malformed responses terminate as `model_error`
+without executing tools. It validates the outer response shape, `content`,
+`toolCalls`, call IDs/names, presence of arguments, and duplicate IDs; the
+registry continues to validate arguments against each tool's declared schema.
+
+**Transcript integrity:** A batch rejected by `maxToolCalls` is not appended to
+the conversation. Otherwise, it would leave a dangling assistant tool-call
+message without corresponding tool results. Aborted runs may still contain
+incomplete tool batches because execution stops immediately; those transcripts
+are terminal artifacts and must not be replayed without reconciliation.
+
+**Scope:** Seeded tests are property-style checks, not a complete property-testing
+framework or proof of correctness. They do not establish OS sandbox security,
+process-tree termination, or protection from concurrent filesystem mutation.
+
 ## What's next
 
-- **Milestone 7 — Testing:** Extended deterministic failure and property tests.
+The seven planned tutorial milestones are complete. Potential extensions include
+a real provider adapter, stronger OS-level isolation, and integration testing
+against a deliberately broken example project.
 
