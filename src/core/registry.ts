@@ -1,6 +1,5 @@
 import type { Tool, ToolDefinition } from './types.ts';
-
-/** Intentionally small JSON Schema subset used by this tutorial. */
+/** Deliberately limited JSON Schema subset for teaching purposes. */
 export function validate(value: unknown, schema: Record<string, unknown>, path = '$'): string[] {
   const errors: string[] = [];
   const type = schema.type;
@@ -27,7 +26,6 @@ export function validate(value: unknown, schema: Record<string, unknown>, path =
   }
   return errors;
 }
-
 export class ToolRegistry {
   private readonly tools = new Map<string, Tool>();
   constructor(tools: readonly Tool[]) {
@@ -37,8 +35,6 @@ export class ToolRegistry {
       this.tools.set(tool.name, tool);
     }
   }
-  definitions(): ToolDefinition[] {
-    return [...this.tools.values()].map(({ name, description, parameters }) => ({ name, description, parameters }));
-  }
+  definitions(): ToolDefinition[] { return [...this.tools.values()].map(({ name, description, parameters }) => ({ name, description, parameters })); }
   get(name: string): Tool | undefined { return this.tools.get(name); }
 }

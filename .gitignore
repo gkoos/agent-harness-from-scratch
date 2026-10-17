@@ -1,27 +1,10 @@
-# Dependencies
 node_modules/
-
-# Build output
 dist/
-build/
 coverage/
-*.tsbuildinfo
-
-# Environment and credentials
 .env
 .env.*
 !.env.example
-
-# Logs
 *.log
-npm-debug.log*
-
-# OS and editor files
 .DS_Store
-Thumbs.db
 .vscode/
 .idea/
-
-# Temporary files
-tmp/
-temp/

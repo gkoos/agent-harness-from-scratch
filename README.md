@@ -1,10 +1,10 @@
 # Agent Harness from Scratch
 
-Educational TypeScript implementation of a provider-independent agent execution loop.
+A small, provider-independent TypeScript agent harness, developed alongside a freeCodeCamp tutorial.
 
-## Requirements
+## Run
 
-Node.js 24+, npm.
+Requires Node.js 24+.
 
 ```sh
 npm install
@@ -13,24 +13,25 @@ npm test
 npm run demo
 ```
 
-The demo uses a scripted model and requires no API key.
+The demo uses a scripted fake model, so no API key is needed.
 
-## Current scope
+## Milestones
 
-The first milestone implements a model interface, tool contract, bounded execution loop, fake model, and deterministic tests. Tool argument schemas are currently advertised but **not automatically validated**; the demo tool validates its own arguments. Real model adapters, tool sandboxing, context budgets, tracing, and hard cancellation are future milestones.
+- `01-model-loop`: bounded model/tool loop and deterministic fake model.
+- `02-tool-dispatch`: tool registry, limited schema validation, recoverable tool failures and model-error termination.
+- **`03-workspace-tools`**: file tools restricted to a workspace, plus developer-configured command presets.
 
-**Security:** Do not connect untrusted models to filesystem or shell tools until workspace confinement and execution controls are implemented.
+## Workspace tools
 
-## Milestone 2: Tool dispatch and failure semantics
+```ts
+const workspace = await Workspace.open('/path/to/project');
+const tools = workspaceTools(workspace);
+```
 
-`ToolRegistry` rejects duplicate/invalid names and exposes model-facing tool definitions.
-The harness validates arguments before execution using a **deliberately limited** JSON Schema subset:
-`type`, `properties`, `required`, `additionalProperties: false`, `items`, and `enum`.
-This is not a general JSON Schema validator. Production systems should use a complete
-validator and validate schemas at registration time.
+Paths must be relative, remain inside the canonical workspace, and cannot traverse symbolic links. Parent directories must exist before writing. Commands are fixed presets supplied by the application; the model can select a preset but cannot provide shell text or arguments.
 
-Unknown tools, invalid arguments, and tool exceptions become `isError: true` tool
-messages so the model can attempt recovery. Model exceptions terminate the run with
-`status: 'model_error'`. Aborts and step limits remain harness-owned termination statuses.
-Tool calls are executed sequentially, and step limits count model turns rather than
-individual tool calls. Per-tool timeouts and tool-call budgets come later.
+## Security limitations
+
+**This is educational code, not a hardened sandbox.** File checks and opens are not atomic across every path component, so an attacker concurrently changing directories could create a time-of-check/time-of-use race. Command presets can run arbitrary code indirectly (for example, a test script), and child processes can spawn descendants. A process kill on timeout does not reliably kill the whole process tree. Command execution does not restrict network access, filesystem access, or environment inheritance. Use an isolated container or OS sandbox for untrusted repositories or agents. The JSON Schema validator is intentionally incomplete.
+
+The model/tool loop currently counts model turns, not individual tool calls. Per-tool execution budgets and stronger cancellation semantics belong to the next milestone.
